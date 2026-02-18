@@ -1,10 +1,12 @@
+version: '3.8'
+
 services:
   postgres:
     image: postgres:15-alpine
     container_name: oms-postgres
     environment:
-      POSTGRES_USER: portfolio
-      POSTGRES_PASSWORD: portfolio123
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: omsdb
     ports:
       - "5432:5432"
@@ -14,7 +16,7 @@ services:
     networks:
       - oms-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U portfolio -d omsdb"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d omsdb"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -23,8 +25,8 @@ services:
     image: mongo:7-jammy
     container_name: oms-mongodb
     environment:
-      MONGO_INITDB_ROOT_USERNAME: portfolio
-      MONGO_INITDB_ROOT_PASSWORD: portfolio123
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
       MONGO_INITDB_DATABASE: productsdb
     ports:
       - "27017:27017"
@@ -42,8 +44,8 @@ services:
     image: rabbitmq:3-management-alpine
     container_name: oms-rabbitmq
     environment:
-      RABBITMQ_DEFAULT_USER: portfolio
-      RABBITMQ_DEFAULT_PASS: portfolio123
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -65,7 +67,7 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8761/actuator/health || exit 1"]
       interval: 20s
-      timeout: 20s
+      timeout: 10s
       retries: 10
       start_period: 60s
 
@@ -76,7 +78,7 @@ services:
       - "8080:8080"
     environment:
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
-      JWT_SECRET: mySecretKeyForJWTTokenGenerationPortfolioProject2024
+      JWT_SECRET: ${JWT_SECRET}
     networks:
       - oms-network
     depends_on:
@@ -85,10 +87,9 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
       interval: 20s
-      timeout: 20s
+      timeout: 10s
       retries: 10
       start_period: 60s
-
 
   user-service:
     build: ./user-service
@@ -97,10 +98,10 @@ services:
       - "8081:8081"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/omsdb
-      SPRING_DATASOURCE_USERNAME: portfolio
-      SPRING_DATASOURCE_PASSWORD: portfolio123
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
-      JWT_SECRET: mySecretKeyForJWTTokenGenerationPortfolioProject2024
+      JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRATION: 86400000
     networks:
       - oms-network
@@ -116,7 +117,7 @@ services:
     ports:
       - "8082:8082"
     environment:
-      SPRING_DATA_MONGODB_URI: mongodb://portfolio:portfolio123@mongodb:27017/productsdb?authSource=admin
+      SPRING_DATA_MONGODB_URI: mongodb://${MONGO_USERNAME}:${MONGO_PASSWORD}@mongodb:27017/productsdb?authSource=admin
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
     networks:
       - oms-network
@@ -133,11 +134,11 @@ services:
       - "8083:8083"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/omsdb
-      SPRING_DATASOURCE_USERNAME: portfolio
-      SPRING_DATASOURCE_PASSWORD: portfolio123
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
       SPRING_RABBITMQ_HOST: rabbitmq
-      SPRING_RABBITMQ_USERNAME: portfolio
-      SPRING_RABBITMQ_PASSWORD: portfolio123
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USER}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
       PRODUCT_SERVICE_URL: http://product-service:8082
     networks:
@@ -157,8 +158,8 @@ services:
       - "8084:8084"
     environment:
       SPRING_RABBITMQ_HOST: rabbitmq
-      SPRING_RABBITMQ_USERNAME: portfolio
-      SPRING_RABBITMQ_PASSWORD: portfolio123
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USER}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
     networks:
       - oms-network
