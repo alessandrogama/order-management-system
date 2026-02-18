@@ -1,0 +1,177 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: oms-postgres
+    environment:
+      POSTGRES_USER: portfolio
+      POSTGRES_PASSWORD: portfolio123
+      POSTGRES_DB: omsdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    networks:
+      - oms-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U portfolio -d omsdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mongodb:
+    image: mongo:7-jammy
+    container_name: oms-mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: portfolio
+      MONGO_INITDB_ROOT_PASSWORD: portfolio123
+      MONGO_INITDB_DATABASE: productsdb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - oms-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: oms-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: portfolio
+      RABBITMQ_DEFAULT_PASS: portfolio123
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - oms-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  eureka-server:
+    build: ./eureka-server
+    container_name: oms-eureka
+    ports:
+      - "8761:8761"
+    networks:
+      - oms-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8761/actuator/health || exit 1"]
+      interval: 20s
+      timeout: 20s
+      retries: 10
+      start_period: 60s
+
+  api-gateway:
+    build: ./api-gateway
+    container_name: oms-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      JWT_SECRET: mySecretKeyForJWTTokenGenerationPortfolioProject2024
+    networks:
+      - oms-network
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
+      interval: 20s
+      timeout: 20s
+      retries: 10
+      start_period: 60s
+
+
+  user-service:
+    build: ./user-service
+    container_name: oms-user
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/omsdb
+      SPRING_DATASOURCE_USERNAME: portfolio
+      SPRING_DATASOURCE_PASSWORD: portfolio123
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      JWT_SECRET: mySecretKeyForJWTTokenGenerationPortfolioProject2024
+      JWT_EXPIRATION: 86400000
+    networks:
+      - oms-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+
+  product-service:
+    build: ./product-service
+    container_name: oms-product
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_DATA_MONGODB_URI: mongodb://portfolio:portfolio123@mongodb:27017/productsdb?authSource=admin
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+    networks:
+      - oms-network
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+
+  order-service:
+    build: ./order-service
+    container_name: oms-order
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/omsdb
+      SPRING_DATASOURCE_USERNAME: portfolio
+      SPRING_DATASOURCE_PASSWORD: portfolio123
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_USERNAME: portfolio
+      SPRING_RABBITMQ_PASSWORD: portfolio123
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      PRODUCT_SERVICE_URL: http://product-service:8082
+    networks:
+      - oms-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+
+  notification-service:
+    build: ./notification-service
+    container_name: oms-notification
+    ports:
+      - "8084:8084"
+    environment:
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_USERNAME: portfolio
+      SPRING_RABBITMQ_PASSWORD: portfolio123
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+    networks:
+      - oms-network
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  mongo_data:
+
+networks:
+  oms-network:
+    driver: bridge

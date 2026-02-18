@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: portfolio
+data:
+  eureka-url: "http://eureka-server:8761/eureka/"
+  rabbitmq-host: "rabbitmq"
+  rabbitmq-username: "portfolio"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-secrets
+  namespace: portfolio
+type: Opaque
+stringData:
+  postgres-url: "jdbc:postgresql://postgres:5432/omsdb"
+  postgres-username: "portfolio"
+  postgres-password: "portfolio123"
+  mongodb-uri: "mongodb://portfolio:portfolio123@mongodb:27017/productsdb?authSource=admin"
+  jwt-secret: "mySecretKeyForJWTTokenGenerationPortfolioProject2024"
