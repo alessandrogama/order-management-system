@@ -22,7 +22,7 @@ public class UserController {
     private final UserService userService;
 
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('ADMIN')")
     @Operation(summary = "List all users (ADMIN only)")
     public ResponseEntity<List<UserResponse>> findAll() {
         return ResponseEntity.ok(userService.findAll());
@@ -35,7 +35,7 @@ public class UserController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('ADMIN')")
     @Operation(summary = "Deactivate user (ADMIN only)")
     public ResponseEntity<Void> delete(@PathVariable String id) {
         userService.delete(id);
